@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Playwright Tests",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["playwright", "test", "--inspect-brk"],
+      "console": "integratedTerminal"
+    }
+  ]
+}

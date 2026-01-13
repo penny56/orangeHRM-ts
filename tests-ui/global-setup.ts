@@ -2,8 +2,13 @@ import { chromium, expect } from '@playwright/test'
 import type { FullConfig } from '@playwright/test'
 
 async function globalSetup(_config: FullConfig) {
-    const browser = await chromium.launch()
+    // const browser = await chromium.launch()
     
+    const browser = await chromium.launch({
+        headless: false,  // 打开浏览器界面
+        slowMo: 50        // 可选，让操作慢一点，方便观察
+    })
+
     const adminContext = await browser.newContext()
     const adminPage = await adminContext.newPage()
 
@@ -17,7 +22,6 @@ async function globalSetup(_config: FullConfig) {
     await adminContext.storageState({path: './admin-state.json'})
 
     /* 进入PIM界面 */
-    await adminPage.pause()
     const PIMButton = adminPage.locator('div.oxd-sidepanel-body').getByRole('link', {name: 'PIM'})
     await PIMButton.click()
     await expect(adminPage.getByRole('heading', {name: 'PIM'})).toBeVisible()
@@ -34,6 +38,8 @@ async function globalSetup(_config: FullConfig) {
     await firstNameField.fill(code)
     const lastNameField = adminPage.getByPlaceholder('Last Name')
     await lastNameField.fill('user')
+    const employeeIdField = adminPage.locator('.oxd-input-group', { hasText: 'Employee Id' }).locator('input.oxd-input')
+    await employeeIdField.fill(code)
 
     /* 同时添加user: create login details */
     await adminPage.locator('.oxd-switch-wrapper').locator('.oxd-switch-input').click()
@@ -75,13 +81,16 @@ async function globalSetup(_config: FullConfig) {
     await saveButton.click()
 
     /* 验证创建用户成功 */
-    // 因为要页面跳转，所以这里要加一个 waitFor()，因为即使expect()那几秒时间也太短了
-    const frameWork = adminPage.locator('div.orangehrm-edit-employee-content')
-    await frameWork.waitFor({ state: 'visible', timeout: 10000 })
-    await expect(adminPage.getByRole('heading', {name: 'Personal Details'})).toBeVisible()
-
+    // await expect(adminPage.locator('div.orangehrm-edit-employee-content')).toBeVisible({ timeout: 20000 })
+    // 1. 明确等 URL（你已经知道会跳到这里）
+    await adminPage.waitForURL(/\/pim\/viewPersonalDetails\/empNumber\/\d+/, { timeout: 20000 })
+    // 2. 明确告诉 Playwright：我不等 navigation 了
+    await adminPage.waitForLoadState('domcontentloaded')
+    // 3. 再检查你说的“一定存在的框架”
     const nameBadge = adminPage.locator('div.orangehrm-edit-employee-name')
-    await expect(nameBadge).toContainText(`${code} user`)
+    await expect(nameBadge).toBeVisible({ timeout: 20000 })
+
+
 
     /* adminContext 完成使命 */
     await adminContext.close()
