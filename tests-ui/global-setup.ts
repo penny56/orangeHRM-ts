@@ -2,12 +2,8 @@ import { chromium, expect } from '@playwright/test'
 import type { FullConfig } from '@playwright/test'
 
 async function globalSetup(_config: FullConfig) {
-    // const browser = await chromium.launch()
-    
-    const browser = await chromium.launch({
-        headless: false,  // 打开浏览器界面
-        slowMo: 50        // 可选，让操作慢一点，方便观察
-    })
+    // 打开浏览器界面，playwright.config 的headless对 global-config 不起作用
+    const browser = await chromium.launch({ headless: false })
 
     const adminContext = await browser.newContext()
     const adminPage = await adminContext.newPage()
@@ -41,56 +37,26 @@ async function globalSetup(_config: FullConfig) {
     const employeeIdField = adminPage.locator('.oxd-input-group', { hasText: 'Employee Id' }).locator('input.oxd-input')
     await employeeIdField.fill(code)
 
-    /* 同时添加user: create login details */
+    /* 同时添加 login: create login details */
     await adminPage.locator('.oxd-switch-wrapper').locator('.oxd-switch-input').click()
+    /* 等待 login 信息出现 */
+    await adminPage.getByText('Username', { exact: true }).waitFor()
 
-    // 这里有点特殊，如果没有合适的locator，可以使用普遍存在的'.oxd-input-group'
-    // 这里，可以使用 { hasText: 'Username' } 来定位
-    // 之后，找到这个父 element 中的可以输入的 <input>
-    const userName = `user${code}`
-    // set username
-    await adminPage.locator('.oxd-input-group', { hasText: 'Username' }).locator('input').fill(userName)
-    // set password
-    await adminPage.locator('.oxd-input-group', { hasText: 'Password' }).nth(0).locator('input').fill(userName)
-    // confirm password
-    await adminPage.locator('.oxd-input-group', { hasText: 'Password' }).nth(1).locator('input').fill(userName)
+    const loginInfo = `user${code}`
+    await adminPage.locator('.oxd-input-group', { hasText: 'Username' }).locator('input').fill(loginInfo)
+    await adminPage.locator('.oxd-input-group', { hasText: 'Password' }).nth(0).locator('input').fill(loginInfo)
+    await adminPage.locator('.oxd-input-group', { hasText: 'Password' }).nth(1).locator('input').fill(loginInfo)
 
     /* 点击 enabled */
-    // ChatGPT 说这里需要点击 <span> 而不是 <input>，因为：span 在 input 的“上层”，我不理解。
-    // 浏览器点击到谁的规则：把click 派发给 “最上层的可接收 pointer-events 的元素”，不会穿透到下面的元素，
-    // 这里的 css 是：
-    /* DOM 里的“前后顺序”≠ 页面上的“上下层级”，谁在上面，取决于 CSS，不取决于 HTML 写在前还是后
-    <div data-v-7ef819fd="" class="oxd-radio-wrapper">
-        <label data-v-7ef819fd="" class=""><!---->
-            <input data-v-7ef819fd="" type="radio" value="1">
-            <span data-v-7ef819fd="" class="oxd-radio-input oxd-radio-input--active --label-right oxd-radio-input"></span>
-        Enabled</label>
-    </div>
-    ┌──────── label ────────┐
-    │  [ span ]  Enabled    │  ← 鼠标点这里()
-    │   ↑                    │
-    │ input (透明 / 0尺寸)   │
-    └───────────────────────┘
-    */
-    // await adminPage.locator('.oxd-radio-wrapper', { hasText: 'Enabled' }).locator('input').check()
     await adminPage.locator('.oxd-radio-wrapper', { hasText: 'Enabled' }).locator('.oxd-radio-input').click()
 
-    console.log(`create user: ${userName}`)
-
+    /* 点击 save */
     const saveButton = adminPage.getByRole('button', {name: 'Save'})
     await saveButton.click()
 
     /* 验证创建用户成功 */
-    // await expect(adminPage.locator('div.orangehrm-edit-employee-content')).toBeVisible({ timeout: 20000 })
-    // 1. 明确等 URL（你已经知道会跳到这里）
-    await adminPage.waitForURL(/\/pim\/viewPersonalDetails\/empNumber\/\d+/, { timeout: 20000 })
-    // 2. 明确告诉 Playwright：我不等 navigation 了
-    await adminPage.waitForLoadState('domcontentloaded')
-    // 3. 再检查你说的“一定存在的框架”
-    const nameBadge = adminPage.locator('div.orangehrm-edit-employee-name')
-    await expect(nameBadge).toBeVisible({ timeout: 20000 })
-
-
+    // Toast 只要出现过一次就算成功
+    await adminPage.waitForSelector('text=Successfully Saved', { timeout: 20000 })
 
     /* adminContext 完成使命 */
     await adminContext.close()
@@ -100,8 +66,8 @@ async function globalSetup(_config: FullConfig) {
     const userPage = await userContext.newPage()
     await userPage.goto("https://opensource-demo.orangehrmlive.com/web/index.php/auth/login")
 
-    await userPage.getByPlaceholder('Username').fill(userName)
-    await userPage.getByPlaceholder('Password').fill(userName)
+    await userPage.getByPlaceholder('Username').fill(loginInfo)
+    await userPage.getByPlaceholder('Password').fill(loginInfo)
     await userPage.getByRole('button', {name: 'Login'}).click()
 
     await userContext.storageState({path: './user-state.json'})
