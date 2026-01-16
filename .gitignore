@@ -7,5 +7,4 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
-*-state.json
-*-info.json
+/.auth/
