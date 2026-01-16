@@ -1,5 +1,4 @@
 import {test, expect } from '@playwright/test'
-import { hasUncaughtExceptionCaptureCallback } from 'node:process';
 
 test.beforeEach(async ({ page }, testInfo) => {
     console.log('>>> Str to -------> ', testInfo.title)

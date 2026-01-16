@@ -1,6 +1,8 @@
 import { chromium, expect } from '@playwright/test'
 import type { FullConfig } from '@playwright/test'
 
+import fs from 'fs'
+
 async function globalSetup(_config: FullConfig) {
     // 打开浏览器界面，playwright.config 的headless对 global-config 不起作用
     const browser = await chromium.launch({ headless: false })
@@ -61,6 +63,10 @@ async function globalSetup(_config: FullConfig) {
     /* adminContext 完成使命 */
     await adminContext.close()
 
+    /* 记录user-info到json */
+    const userInfo = {lastName: code, firstName: 'user', loginInfo: loginInfo}
+    fs.writeFileSync('./user-info.json', JSON.stringify(userInfo, null, 4), 'utf-8')
+
     /* user登录 */
     const userContext = await browser.newContext()
     const userPage = await userContext.newPage()
@@ -70,6 +76,8 @@ async function globalSetup(_config: FullConfig) {
     await userPage.getByPlaceholder('Password').fill(loginInfo)
     await userPage.getByRole('button', {name: 'Login'}).click()
 
+    /* 确保admin登录成功 */
+    await userPage.getByRole('heading', { name: 'Dashboard' }).waitFor()
     await userContext.storageState({path: './user-state.json'})
 
     /* userContext 完成使命 */
